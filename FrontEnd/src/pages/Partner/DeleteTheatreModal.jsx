@@ -1,8 +1,7 @@
 import React from "react";
-import { useDispatch } from "react-redux";
-import { hideLoading, showLoading } from "../../redux/loaderSlice";
-import { message, Modal } from "antd";
+import { Modal } from "antd";
 import { deleteTheatre } from "../../api/theatre";
+import useApi from "../../hooks/useApi";
 
 const DeleteTheatreModal = ({
   isDeleteModalOpen,
@@ -11,26 +10,15 @@ const DeleteTheatreModal = ({
   setSelectedTheatre,
   getData,
 }) => {
-  const dispatch = useDispatch();
+  const { execute: removeTheatre } = useApi(deleteTheatre, {
+    successMessage: true,
+    onSuccess: () => getData(),
+  });
 
   const handleOk = async () => {
-    try {
-      dispatch(showLoading());
-      const theatreId = selectedTheatre._id;
-      const response = await deleteTheatre({ theatreId: theatreId });
-      if (response.success) {
-        message.success(response.message);
-        getData();
-      } else {
-        message.error(response.message);
-      }
-    } catch (error) {
-      message.error(error);
-    } finally {
-      dispatch(hideLoading);
-      setIsDeleteModalOpen(false);
-      setSelectedTheatre(null);
-    }
+    await removeTheatre({ theatreId: selectedTheatre._id });
+    setIsDeleteModalOpen(false);
+    setSelectedTheatre(null);
   };
 
   const handleCancel = () => {

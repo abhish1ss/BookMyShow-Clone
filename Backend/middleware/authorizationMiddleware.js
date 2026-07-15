@@ -1,17 +1,20 @@
 const jwt = require("jsonwebtoken");
+const ApiError = require("../utils/ApiError");
 
 const validateJWTToken = (req, res, next) => {
   try {
-    const token = req?.headers?.authorization?.split(" ")[1];
+    // primary: httpOnly cookie; fallback: Bearer header (Swagger, curl)
+    const token =
+      req?.cookies?.tokenForBMS || req?.headers?.authorization?.split(" ")[1];
+    // jwt.verify throws TokenExpiredError on expiry — no manual exp check needed
     const decoded = jwt.verify(token, process.env.SECRET_KEY);
-    const currentTime = Math.floor(Date.now() / 1000);
-    if (currentTime > decoded.exp) {
-      res.status(401).send({ success: false, message: "Expired Token" });
-    }
     req.body.userId = decoded?.userId;
     next();
   } catch (error) {
-    res.status(401).send({ success: false, message: "Invalid/Expired Token" });
+    if (error.name === "TokenExpiredError") {
+      return next(new ApiError(401, "Expired Token"));
+    }
+    next(new ApiError(401, "Invalid/Expired Token"));
   }
 };
 

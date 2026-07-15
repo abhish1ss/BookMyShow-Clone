@@ -1,34 +1,17 @@
-import { Button, Card, Col, Row, message } from "antd";
-import { useEffect, useState } from "react";
-import { hideLoading, showLoading } from "../../redux/loaderSlice";
+import { Button, Card, Col, Row } from "antd";
+import { useEffect } from "react";
 import { getAllBookings } from "../../api/booking";
-import { useDispatch } from "react-redux";
-import moment from "moment";
 import { Link } from "react-router-dom";
+import useApi from "../../hooks/useApi";
+import { formatShowDate, formatTime } from "../../utils/date";
 
 const Booking = () => {
-  const [bookings, setBookings] = useState([]);
-  const dispatch = useDispatch();
-
-  const getData = async () => {
-    try {
-      dispatch(showLoading());
-      const response = await getAllBookings();
-      if (response.success) {
-        setBookings(response.data);
-      } else {
-        message.error(response.message);
-      }
-
-      dispatch(hideLoading());
-    } catch (err) {
-      message.error(err.message);
-      dispatch(hideLoading());
-    }
-  };
+  const { data: bookings, execute: fetchBookings } = useApi(getAllBookings, {
+    initialData: [],
+  });
 
   useEffect(() => {
-    getData();
+    fetchBookings();
   }, []);
 
   return (
@@ -48,7 +31,9 @@ const Booking = () => {
                       />
                     </div>
                     <div className="show-details flex-1">
-                      <h3 className="mt-0 mb-0">{booking.show.movie.movieName}</h3>
+                      <h3 className="mt-0 mb-0">
+                        {booking.show.movie.movieName}
+                      </h3>
                       <p>
                         Theatre: <b>{booking.show.theatre.name}</b>
                       </p>
@@ -58,8 +43,8 @@ const Booking = () => {
                       <p>
                         Date & Time:
                         <b>
-                          {moment(booking.show.date).format("MMM Do YYYY")}
-                          {moment(booking.show.time, "HH:mm").format("hh:mm A")}
+                          {formatShowDate(booking.show.date)}{" "}
+                          {formatTime(booking.show.time)}
                         </b>
                       </p>
                       <p>

@@ -1,33 +1,25 @@
 import React, { useEffect, useState } from "react";
-import { Table, message, Button } from "antd";
-import { useDispatch } from "react-redux";
-import { hideLoading, showLoading } from "../../redux/loaderSlice";
+import { Table, Button } from "antd";
+import { useDispatch, useSelector } from "react-redux";
 import { getAllMovies } from "../../api/movie";
 import { EditOutlined, DeleteOutlined } from "@ant-design/icons";
 import MovieForm from "./MovieForm";
 import DeleteMovieModal from "./DeleteMovieModal";
-import moment from "moment";
+import { setMovies } from "../../redux/moviesSlice";
+import useApi from "../../hooks/useApi";
+import { formatDate } from "../../utils/date";
 
 const MovieList = () => {
-  const [movies, SetMovies] = useState([]);
+  const { movies } = useSelector((state) => state.movies);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [selectedMovie, setSelectedMovie] = useState(null);
   const [formType, setFormType] = useState("add");
   const dispatch = useDispatch();
 
-  const getData = async () => {
-    try {
-      dispatch(showLoading());
-      const response = await getAllMovies();
-      const allMovies = response?.data;
-      SetMovies(allMovies);
-    } catch (error) {
-      message.error(error);
-    } finally {
-      dispatch(hideLoading());
-    }
-  };
+  const { execute: getData } = useApi(getAllMovies, {
+    onSuccess: (data) => dispatch(setMovies(data)),
+  });
 
   const tableHeadings = [
     {
@@ -71,7 +63,7 @@ const MovieList = () => {
       title: "Release Date",
       dataIndex: "releaseDate",
       render: (text, data) => {
-        return moment(data.releaseDate).format("MM-DD-YYYY");
+        return formatDate(data.releaseDate, "MM-dd-yyyy");
       },
     },
     {
@@ -116,7 +108,7 @@ const MovieList = () => {
           Add Movie
         </Button>
       </div>
-      <Table columns={tableHeadings} dataSource={movies} />
+      <Table rowKey="_id" columns={tableHeadings} dataSource={movies} />
       {isModalOpen && (
         <MovieForm
           isModalOpen={isModalOpen}

@@ -1,33 +1,36 @@
-import React, { useEffect } from "react";
+import React from "react";
 import { ForgetPassword } from "../api/user";
 import { useNavigate, Link } from "react-router-dom";
 import { Button, Form, Input, message } from "antd";
+import { useDispatch } from "react-redux";
+import { hideLoading, showLoading } from "../redux/loaderSlice";
+import { showError } from "../api";
 
 const Forget = () => {
   const navigate = useNavigate();
-  useEffect(() => {
-    if (localStorage.getItem("tokenForBMS")) {
-      navigate("/");
-    }
-  }, []);
+  const dispatch = useDispatch();
 
+  // manual flow: an "OTP already sent" failure still navigates to /reset,
+  // which the generic useApi hook can't express
   const onFinish = async (values) => {
     try {
+      dispatch(showLoading());
       const response = await ForgetPassword(values);
       if (response.success) {
         message.success(response.message);
-        alert("OTP sent to your email");
         navigate("/reset");
       } else {
         if (response.message === "Please use otp sent on mail") {
-          alert("Please use existing otp");
+          message.warning("Please use the OTP already sent to your email");
           navigate("/reset");
         } else {
-          message.error(response.message);
+          showError(response.message);
         }
       }
     } catch (error) {
-      message.error(error.message);
+      showError(error.message);
+    } finally {
+      dispatch(hideLoading());
     }
   };
 

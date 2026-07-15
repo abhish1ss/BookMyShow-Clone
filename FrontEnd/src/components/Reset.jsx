@@ -1,30 +1,17 @@
-import React, { useEffect } from "react";
+import React from "react";
 import { Button, Form, Input } from "antd";
 import { useNavigate } from "react-router-dom";
 import { ResetPassword } from "../api/user";
-import { message } from "antd";
+import useApi from "../hooks/useApi";
 
 function Reset() {
   const navigate = useNavigate();
-  const onFinish = async (values) => {
-    try {
-      const response = await ResetPassword(values);
-      if (response.success) {
-        message.success(response.message);
-        navigate("/login");
-      } else {
-        message.error(response.message);
-      }
-    } catch (error) {
-      message.error(error.message);
-    }
-  };
+  const { execute: resetPassword } = useApi(ResetPassword, {
+    successMessage: true,
+    onSuccess: () => navigate("/login"),
+  });
+  const onFinish = (values) => resetPassword(values);
 
-  useEffect(() => {
-    if (localStorage.getItem("tokenForBMS")) {
-      navigate("/");
-    }
-  }, []);
   return (
     <>
       <header className="App-header">

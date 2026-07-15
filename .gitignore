@@ -1,6 +1,8 @@
 # Dependencies
 node_modules/
 **/node_modules/
+.claude
+.idea
 
 # Environment / secrets — NEVER commit
 .env

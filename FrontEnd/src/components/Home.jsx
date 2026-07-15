@@ -1,39 +1,28 @@
-import { message, Row, Col, Input } from "antd";
+import { Row, Col, Input } from "antd";
 import React, { useEffect, useState } from "react";
-import { hideLoading, showLoading } from "../redux/loaderSlice";
 import { useNavigate } from "react-router-dom";
 import { SearchOutlined } from "@ant-design/icons";
 import { getAllMovies } from "../api/movie";
-import { useDispatch } from "react-redux";
-import moment from "moment";
+import { useDispatch, useSelector } from "react-redux";
+import { setMovies } from "../redux/moviesSlice";
+import useApi from "../hooks/useApi";
+import { today } from "../utils/date";
 
 const Home = () => {
-  const [movies, setMovies] = useState(null);
   const [searchText, setSearchText] = useState("");
+  const { movies } = useSelector((state) => state.movies);
   const dispatch = useDispatch();
   const navigate = useNavigate();
-  const getData = async () => {
-    try {
-      dispatch(showLoading());
-      const response = await getAllMovies();
-      if (response.success) {
-        setMovies(response.data);
-      } else {
-        message.error(response.message);
-      }
-    } catch (error) {
-      message.error(error);
-    } finally {
-      dispatch(hideLoading());
-    }
-  };
+  const { execute: fetchMovies } = useApi(getAllMovies, {
+    onSuccess: (data) => dispatch(setMovies(data)),
+  });
 
   const handleSearch = (event) => {
     setSearchText(event.target.value);
   };
 
   useEffect(() => {
-    getData();
+    fetchMovies();
   }, []);
 
   return (
@@ -78,11 +67,7 @@ const Home = () => {
                 <div className="text-center">
                   <img
                     onClick={() => {
-                      navigate(
-                        `/movie/${movie._id}?date=${moment().format(
-                          "YYYY-MM-DD"
-                        )}`
-                      );
+                      navigate(`/movie/${movie._id}?date=${today()}`);
                     }}
                     className="cursor-pointer"
                     src={movie.poster}
@@ -104,11 +89,7 @@ const Home = () => {
                   />
                   <h3
                     onClick={() => {
-                      navigate(
-                        `/movie/${movie._id}?date=${moment().format(
-                          "YYYY-MM-DD"
-                        )}`
-                      );
+                      navigate(`/movie/${movie._id}?date=${today()}`);
                     }}
                     className="cursor-pointer"
                   >

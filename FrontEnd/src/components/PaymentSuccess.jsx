@@ -4,6 +4,7 @@ import { useDispatch } from "react-redux";
 import { message } from "antd";
 import { hideLoading, showLoading } from "../redux/loaderSlice";
 import { confirmBooking } from "../api/booking";
+import { showError } from "../api";
 
 // Landing page Stripe redirects to after a successful hosted-Checkout payment.
 // It reads the Checkout session id from the URL, asks the backend to verify the
@@ -29,11 +30,11 @@ const PaymentSuccess = () => {
           navigate("/profile");
         } else {
           setStatus(response.message || "Could not confirm your booking.");
-          message.error(response.message || "Could not confirm your booking.");
+          showError(response.message || "Could not confirm your booking.");
         }
       } catch (err) {
         setStatus("Something went wrong while confirming your booking.");
-        message.error(err.message || "Error");
+        showError(err.message || "Error");
       } finally {
         dispatch(hideLoading());
       }

@@ -1,37 +1,17 @@
-import React, { useEffect } from "react";
-import { Form, Input, Button, message } from "antd";
+import React from "react";
+import { Form, Input, Button } from "antd";
 import { Link, useNavigate } from "react-router-dom";
 import { LoginUser } from "../api/user";
-import { useDispatch } from "react-redux";
-import { hideLoading, showLoading } from "../redux/loaderSlice";
+import useApi from "../hooks/useApi";
 
 const Login = () => {
   const navigate = useNavigate();
-  const dispatch = useDispatch();
-  const onFinish = async (values) => {
-    try {
-      dispatch(showLoading());
-      const response = await LoginUser(values);
-      if (response?.success) {
-        message.success(response?.message);
-        localStorage.setItem("tokenForBMS", response?.data);
-        navigate("/");
-      } else if (response?.message === "Please enter valid password") {
-        // to do
-        message.error(response?.message);
-      }
-    } catch (error) {
-      message.error(error);
-    } finally {
-      dispatch(hideLoading());
-    }
-  };
-
-  useEffect(() => {
-    if (localStorage.getItem("tokenForBMS")) {
-      navigate("/", { replace: true });
-    }
-  }, []);
+  // the JWT arrives as an httpOnly cookie set by the backend
+  const { execute: login } = useApi(LoginUser, {
+    successMessage: true,
+    onSuccess: () => navigate("/"),
+  });
+  const onFinish = (values) => login(values);
   return (
     <header className="App-header">
       <main className="main-area mw-500 text-center px-3">

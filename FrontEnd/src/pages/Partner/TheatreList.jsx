@@ -1,40 +1,26 @@
 import React, { useEffect, useState } from "react";
-import { useDispatch } from "react-redux";
-import { hideLoading, showLoading } from "../../redux/loaderSlice";
-import { message, Table, Button } from "antd";
+import { useDispatch, useSelector } from "react-redux";
+import { Table, Button } from "antd";
 import { getAllTheatres } from "../../api/theatre";
 import { EditOutlined, DeleteOutlined } from "@ant-design/icons";
-import DeleteMovieModal from "../Admin/DeleteMovieModal";
 import DeleteTheatreModal from "./DeleteTheatreModal";
 import TheatreForm from "./TheatreForm";
 import ShowModal from "./ShowModal";
+import { setTheatres } from "../../redux/theatresSlice";
+import useApi from "../../hooks/useApi";
 
 const TheatreList = () => {
-  const disptach = useDispatch();
+  const dispatch = useDispatch();
+  const { theatres } = useSelector((state) => state.theatres);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedTheatre, setSelectedTheatre] = useState(null);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [isShowModalOpen, setIsShowModalOpen] = useState(false);
   const [formType, setFormType] = useState("add");
-  const [theatres, setTheatres] = useState(null);
 
-  const getData = async () => {
-    try {
-      disptach(showLoading());
-      const response = await getAllTheatres();
-      if (response.success) {
-        setTheatres(
-          response.data.map((item) => {
-            return { ...item, key: `theatre${item._id}` };
-          })
-        );
-      }
-    } catch (err) {
-      message.error(err);
-    } finally {
-      disptach(hideLoading());
-    }
-  };
+  const { execute: getData } = useApi(getAllTheatres, {
+    onSuccess: (data) => dispatch(setTheatres(data)),
+  });
   const columns = [
     {
       title: "Name",
@@ -122,7 +108,7 @@ const TheatreList = () => {
           Add Theatre
         </Button>
       </div>
-      <Table dataSource={theatres} columns={columns} />
+      <Table rowKey="_id" dataSource={theatres} columns={columns} />
       {isModalOpen && (
         <TheatreForm
           isModalOpen={isModalOpen}

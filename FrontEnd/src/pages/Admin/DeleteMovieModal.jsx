@@ -1,7 +1,6 @@
-import { Modal, message } from "antd";
-import { showLoading, hideLoading } from "../../redux/loaderSlice";
-import { useDispatch } from "react-redux";
+import { Modal } from "antd";
 import { deleteMovie } from "../../api/movie";
+import useApi from "../../hooks/useApi";
 
 const DeleteMovieModal = ({
   isDeleteModalOpen,
@@ -10,27 +9,15 @@ const DeleteMovieModal = ({
   setSelectedMovie,
   getData,
 }) => {
-  const dispatch = useDispatch();
+  const { execute: removeMovie } = useApi(deleteMovie, {
+    successMessage: true,
+    onSuccess: () => getData(),
+  });
 
   const handleOk = async () => {
-    try {
-      dispatch(showLoading());
-      const movieId = selectedMovie._id;
-      const response = await deleteMovie({ movieId });
-      if (response.success) {
-        message.success(response.message);
-        getData();
-      } else {
-        message.error(response.message);
-      }
-      setSelectedMovie(null);
-      setIsDeleteModalOpen(false);
-      dispatch(hideLoading());
-    } catch (err) {
-      dispatch(hideLoading());
-      setIsDeleteModalOpen(false);
-      message.error(err.message);
-    }
+    await removeMovie({ movieId: selectedMovie._id });
+    setSelectedMovie(null);
+    setIsDeleteModalOpen(false);
   };
 
   const handleCancel = () => {

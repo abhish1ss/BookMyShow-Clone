@@ -5,7 +5,7 @@ export const addTheatre = async (payload) => {
     const response = await axiosInstance.post("/theatres/addTheatre", payload);
     return response.data;
   } catch (err) {
-    return err.response;
+    return err.response?.data || { success: false, message: err.message };
   }
 };
 
@@ -17,16 +17,16 @@ export const updateTheatre = async (payload) => {
     );
     return response.data;
   } catch (err) {
-    return err.resposne;
+    return err.response?.data || { success: false, message: err.message };
   }
 };
 
-export const getAllTheatres = async (payload) => {
+export const getAllTheatres = async () => {
   try {
     const response = await axiosInstance.get("/theatres/getAllTheatresByOwner");
     return response.data;
   } catch (err) {
-    return err.response;
+    return err.response?.data || { success: false, message: err.message };
   }
 };
 
@@ -35,7 +35,7 @@ export const getAllTheatresForAdmin = async () => {
     const response = await axiosInstance.get("/theatres/getAllTheatres");
     return response.data;
   } catch (err) {
-    return err.response;
+    return err.response?.data || { success: false, message: err.message };
   }
 };
 
@@ -46,6 +46,6 @@ export const deleteTheatre = async (payload) => {
     );
     return response.data;
   } catch (err) {
-    return err.response;
+    return err.response?.data || { success: false, message: err.message };
   }
 };

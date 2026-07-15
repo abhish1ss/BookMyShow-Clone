@@ -1,16 +1,5 @@
-import {
-  Col,
-  Modal,
-  Row,
-  Form,
-  Input,
-  Button,
-  Select,
-  Table,
-  message,
-} from "antd";
+import { Col, Modal, Row, Form, Input, Button, Select, Table } from "antd";
 import React, { useState, useEffect } from "react";
-import moment from "moment";
 import {
   addShow,
   deleteShow,
@@ -18,8 +7,10 @@ import {
   updateShow,
 } from "../../api/show";
 import { getAllMovies } from "../../api/movie";
-import { showLoading, hideLoading } from "../../redux/loaderSlice";
-import { useDispatch } from "react-redux";
+import { useDispatch, useSelector } from "react-redux";
+import { setMovies } from "../../redux/moviesSlice";
+import useApi from "../../hooks/useApi";
+import { formatDate, formatShowDate, formatTime } from "../../utils/date";
 import {
   ArrowLeftOutlined,
   EditOutlined,
@@ -32,60 +23,44 @@ const ShowModal = ({
   selectedTheatre,
   setSelectedTheatre,
 }) => {
-  const [shows, setShows] = useState([]);
-  const [movies, setMovies] = useState(null);
   const [view, setView] = useState("table");
   const [selectedShow, setSelectedShow] = useState(null);
   const dispatch = useDispatch();
+  const { movies } = useSelector((state) => state.movies);
 
-  const onFinish = async (values) => {
-    try {
-      dispatch(showLoading());
-      let response = null;
-      if (view === "add") {
-        response = await addShow({ ...values, theatre: selectedTheatre._id });
-      } else {
-        response = await updateShow({
-          ...values,
-          showId: selectedShow._id,
-          theatre: selectedTheatre._id,
-        });
-      }
-      if (response.success) {
-        getData();
-        message.success(response.message);
-        setView("table");
-      } else {
-        message.error(response.message);
-      }
-    } catch (err) {
-      message.error(err.message);
-    } finally {
-      dispatch(hideLoading());
-    }
+  const { execute: fetchMovies } = useApi(getAllMovies, {
+    onSuccess: (data) => dispatch(setMovies(data)),
+  });
+  const { data: shows, execute: fetchShows } = useApi(getShowsByTheatre, {
+    initialData: [],
+  });
+  const getData = () => {
+    fetchMovies();
+    fetchShows({ theatreId: selectedTheatre._id });
   };
 
-  const getData = async () => {
-    try {
-      dispatch(showLoading());
-      const movieResponse = await getAllMovies();
-      if (movieResponse.success) {
-        setMovies(movieResponse.data);
-      } else {
-        message.error(movieResponse.message);
-      }
-      const showResponse = await getShowsByTheatre({
-        theatreId: selectedTheatre._id,
+  const onShowSaved = () => {
+    getData();
+    setView("table");
+  };
+  const { execute: saveNewShow } = useApi(addShow, {
+    successMessage: true,
+    onSuccess: onShowSaved,
+  });
+  const { execute: saveShowUpdate } = useApi(updateShow, {
+    successMessage: true,
+    onSuccess: onShowSaved,
+  });
+
+  const onFinish = (values) => {
+    if (view === "add") {
+      saveNewShow({ ...values, theatre: selectedTheatre._id });
+    } else {
+      saveShowUpdate({
+        ...values,
+        showId: selectedShow._id,
+        theatre: selectedTheatre._id,
       });
-      if (showResponse.success) {
-        setShows(showResponse.data);
-      } else {
-        message.error(showResponse.message);
-      }
-    } catch (err) {
-      message.error(err.message);
-    } finally {
-      dispatch(hideLoading());
     }
   };
 
@@ -98,15 +73,15 @@ const ShowModal = ({
     {
       title: "Show Date",
       dataIndex: "date",
-      render: (text, data) => {
-        return moment(text).format("MMM Do YYYY");
+      render: (text) => {
+        return formatShowDate(text);
       },
     },
     {
       title: "Show Time",
       dataIndex: "time",
-      render: (text, data) => {
-        return moment(text, "HH:mm").format("hh:mm A");
+      render: (text) => {
+        return formatTime(text);
       },
     },
     {
@@ -144,7 +119,7 @@ const ShowModal = ({
                 setView("edit");
                 setSelectedShow({
                   ...data,
-                  date: moment(data.date).format("YYYY-MM-DD"),
+                  date: formatDate(data.date),
                   movie: data.movie._id,
                 });
               }}
@@ -169,22 +144,11 @@ const ShowModal = ({
     },
   ];
 
-  const handleDelete = async (showId) => {
-    try {
-      dispatch(showLoading());
-      const response = await deleteShow({ showId: showId });
-      if (response.success) {
-        message.success(response.message);
-        getData();
-      } else {
-        message.error(response.message);
-      }
-    } catch (err) {
-      message.error(err.message);
-    } finally {
-      dispatch(hideLoading());
-    }
-  };
+  const { execute: removeShow } = useApi(deleteShow, {
+    successMessage: true,
+    onSuccess: () => getData(),
+  });
+  const handleDelete = (showId) => removeShow({ showId });
 
   const handleCancel = () => {
     setIsShowModalOpen(false);
@@ -217,7 +181,9 @@ const ShowModal = ({
           </Button>
         )}
       </div>
-      {view === "table" && <Table dataSource={shows} columns={columns} />}
+      {view === "table" && (
+        <Table rowKey="_id" dataSource={shows} columns={columns} />
+      )}
 
       {(view === "add" || view === "edit") && (
         <Form

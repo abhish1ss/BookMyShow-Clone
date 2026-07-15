@@ -3,38 +3,19 @@ import { useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { hideLoading, showLoading } from "../redux/loaderSlice";
 import { getShowById } from "../api/show";
-import { useNavigate, useParams } from "react-router-dom";
-import { message, Card, Row, Col, Button } from "antd";
-import moment from "moment";
-import { bookShow, createCheckoutSession } from "../api/booking";
-
-// Demo mode: when true, "Pay Now" books directly with no Stripe call (handy if no
-// keys are configured). When false (default), it opens Stripe's hosted Checkout,
-// which runs server-side with the secret key in Backend/.env.
-const DEMO_PAYMENT = false;
+import { useParams } from "react-router-dom";
+import { Card, Row, Col, Button } from "antd";
+import { createCheckoutSession } from "../api/booking";
+import { showError } from "../api";
+import useApi from "../hooks/useApi";
+import { formatShowDate, formatTime } from "../utils/date";
 
 const BookShow = () => {
   const params = useParams();
   const dispatch = useDispatch();
-  const [show, setShow] = useState();
   const [selectedSeats, setSelectedSeats] = useState([]);
   const { user } = useSelector((state) => state.user);
-  const navigate = useNavigate();
-  const getData = async () => {
-    try {
-      dispatch(showLoading());
-      const response = await getShowById({ showId: params.id });
-      if (response.success) {
-        setShow(response.data);
-      } else {
-        message.error(response.message);
-      }
-      dispatch(hideLoading());
-    } catch (err) {
-      message.error(err.message);
-      dispatch(hideLoading());
-    }
-  };
+  const { data: show, execute: fetchShow } = useApi(getShowById);
 
   const getSeats = () => {
     let columns = 12;
@@ -98,49 +79,6 @@ const BookShow = () => {
     );
   };
 
-  // const book = async (transactionId) => {
-  //   try {
-  //     dispatch(showLoading());
-  //     const response = await bookShow({
-  //       show: params.id,
-  //       transactionId,
-  //       seats: selectedSeats,
-  //       user: user._id,
-  //     });
-  //     if (response.success) {
-  //       message.success("Show Booking done!");
-  //       navigate("/profile");
-  //     } else {
-  //       message.error(response.message);
-  //     }
-  //     dispatch(hideLoading());
-  //   } catch (err) {
-  //     message.error(err.message);
-  //     dispatch(hideLoading());
-  //   }
-  // };
-
-  // const onToken = async (token) => {
-  //   try {
-  //     dispatch(showLoading());
-  //     const response = await makePayment(
-  //       token,
-  //       selectedSeats.length * show.ticketPrice
-  //     );
-  //     if (response.success) {
-  //       message.success(response.message);
-  //       book(response.data);
-  //       console.log(response);
-  //     } else {
-  //       message.error(response.message);
-  //     }
-  //     dispatch(hideLoading());
-  //   } catch (err) {
-  //     message.error(err.message);
-  //     dispatch(hideLoading());
-  //   }
-  // };
-
   const payWithCheckout = async () => {
     try {
       dispatch(showLoading());
@@ -153,39 +91,17 @@ const BookShow = () => {
         // hand off to Stripe's hosted payment page
         window.location.href = response.data.url;
       } else {
-        message.error(response.message || "Unable to start checkout");
+        showError(response.message || "Unable to start checkout");
       }
     } catch (err) {
-      message.error(err.message || "Checkout error");
-    } finally {
-      dispatch(hideLoading());
-    }
-  };
-
-  const demoBook = async () => {
-    try {
-      dispatch(showLoading());
-      const response = await bookShow({
-        show: params.id,
-        seats: selectedSeats,
-        user: user._id,
-        transactionId: "demo_" + Date.now(),
-      });
-      if (response.success) {
-        message.success("Show Booking done!");
-        navigate("/profile");
-      } else {
-        message.error(response.message);
-      }
-    } catch (err) {
-      message.error(err);
+      showError(err.message || "Checkout error");
     } finally {
       dispatch(hideLoading());
     }
   };
 
   useEffect(() => {
-    getData();
+    fetchShow({ showId: params.id });
   }, []);
   return (
     <div>
@@ -208,8 +124,7 @@ const BookShow = () => {
                   </h3>
                   <h3>
                     <span>Date & Time: </span>
-                    {moment(show.date).format("MMM Do YYYY")} at
-                    {moment(show.time, "HH:mm").format("hh:mm A")}
+                    {formatShowDate(show.date)} at {formatTime(show.time)}
                   </h3>
                   <h3>
                     <span>Ticket Price:</span> Rs. {show.ticketPrice}/-
@@ -232,7 +147,7 @@ const BookShow = () => {
                     shape="round"
                     size="large"
                     block
-                    onClick={DEMO_PAYMENT ? demoBook : payWithCheckout}
+                    onClick={payWithCheckout}
                   >
                     Pay Now
                   </Button>

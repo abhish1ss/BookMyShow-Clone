@@ -5,7 +5,7 @@ export const addShow = async (payload) => {
     const response = await axiosInstance.post("/shows/addShow", payload);
     return response.data;
   } catch (err) {
-    return err.message;
+    return err.response?.data || { success: false, message: err.message };
   }
 };
 
@@ -14,7 +14,7 @@ export const updateShow = async (payload) => {
     const response = await axiosInstance.patch("/shows/updateShow", payload);
     return response.data;
   } catch (err) {
-    return err.message;
+    return err.response?.data || { success: false, message: err.message };
   }
 };
 
@@ -25,7 +25,7 @@ export const deleteShow = async (payload) => {
     );
     return response.data;
   } catch (err) {
-    return err.message;
+    return err.response?.data || { success: false, message: err.message };
   }
 };
 
@@ -37,7 +37,7 @@ export const getShowsByTheatre = async (payload) => {
     );
     return response.data;
   } catch (err) {
-    return err.response;
+    return err.response?.data || { success: false, message: err.message };
   }
 };
 
@@ -49,7 +49,7 @@ export const getAllTheatresByMovie = async (payload) => {
     );
     return response.data;
   } catch (err) {
-    return err.response;
+    return err.response?.data || { success: false, message: err.message };
   }
 };
 
@@ -58,6 +58,6 @@ export const getShowById = async (payload) => {
     const response = await axiosInstance.post("shows/getShowById", payload);
     return response.data;
   } catch (err) {
-    return err.message;
+    return err.response?.data || { success: false, message: err.message };
   }
 };

@@ -1,33 +1,16 @@
-import React, { useEffect } from "react";
-import { Form, Input, Button, message, Radio } from "antd";
+import React from "react";
+import { Form, Input, Button, Radio } from "antd";
 import { Link, useNavigate } from "react-router-dom";
 import { RegisterUser } from "../api/user";
-import { useDispatch } from "react-redux";
-import { hideLoading, showLoading } from "../redux/loaderSlice";
+import useApi from "../hooks/useApi";
 
 const Register = () => {
   const navigate = useNavigate();
-  const dispatch = useDispatch();
-  const onFinish = async (values) => {
-    try {
-      dispatch(showLoading());
-      const response = await RegisterUser(values);
-      if (response?.success) {
-        message.success(response?.message);
-        navigate("/login");
-      }
-    } catch (error) {
-      message.error(error);
-    } finally {
-      dispatch(hideLoading());
-    }
-  };
-
-  useEffect(() => {
-    if (localStorage.getItem("tokenForBMS")) {
-      navigate("/", { replace: true });
-    }
-  }, []);
+  const { execute: register } = useApi(RegisterUser, {
+    successMessage: true,
+    onSuccess: () => navigate("/login"),
+  });
+  const onFinish = (values) => register(values);
   return (
     <header className="App-header">
       <main className="main-area mw-500 text-center px-3">

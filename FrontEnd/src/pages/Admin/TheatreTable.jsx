@@ -1,50 +1,29 @@
-import { Table, Button, message } from "antd";
-import React, { useEffect, useState } from "react";
-import { useDispatch } from "react-redux";
-import { hideLoading, showLoading } from "../../redux/loaderSlice";
+import { Table, Button } from "antd";
+import React, { useEffect } from "react";
+import { useDispatch, useSelector } from "react-redux";
 import { getAllTheatresForAdmin, updateTheatre } from "../../api/theatre";
+import { setTheatres } from "../../redux/theatresSlice";
+import useApi from "../../hooks/useApi";
 
 const TheatreTable = () => {
   const dispatch = useDispatch();
-  const [theatres, setTheatres] = useState([]);
+  const { theatres } = useSelector((state) => state.theatres);
 
-  const getData = async () => {
-    try {
-      dispatch(showLoading());
-      const response = await getAllTheatresForAdmin();
-      if (response.success) {
-        const allTheatres = response.data;
-        setTheatres(
-          allTheatres.map(function (item) {
-            return { ...item, key: `theatre${item._id}` };
-          })
-        );
-      }
-    } catch (err) {
-      message.error(err);
-    } finally {
-      dispatch(hideLoading());
-    }
-  };
+  const { execute: getData } = useApi(getAllTheatresForAdmin, {
+    onSuccess: (data) => dispatch(setTheatres(data)),
+  });
 
-  const handleStatusChange = async (theatre) => {
-    try {
-      dispatch(showLoading());
-      const values = {
-        ...theatre,
-        theatreId: theatre._id,
-        isActive: !theatre.isActive,
-      };
-      const response = await updateTheatre(values);
-      if (response.success) {
-        message.success(response.message);
-        getData();
-      }
-    } catch (err) {
-      message.error(err);
-    } finally {
-      dispatch(hideLoading());
-    }
+  const { execute: saveStatusChange } = useApi(updateTheatre, {
+    successMessage: true,
+    onSuccess: () => getData(),
+  });
+
+  const handleStatusChange = (theatre) => {
+    saveStatusChange({
+      ...theatre,
+      theatreId: theatre._id,
+      isActive: !theatre.isActive,
+    });
   };
   const columns = [
     {
@@ -107,7 +86,7 @@ const TheatreTable = () => {
   }, []);
   return (
     <div>
-      <Table dataSource={theatres} columns={columns} />
+      <Table rowKey="_id" dataSource={theatres} columns={columns} />
     </div>
   );
 };

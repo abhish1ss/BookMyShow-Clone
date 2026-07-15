@@ -8,13 +8,15 @@ A full-stack movie ticket–booking application (a BookMyShow clone) built with 
 
 ## ✨ Features
 
-- **Authentication & authorization** — register/login with **JWT**, passwords hashed with **bcrypt**, forgot/reset password via email (OTP).
+- **Authentication & authorization** — register/login with **JWT** delivered in an **httpOnly cookie** (out of reach of client-side scripts), passwords hashed with **bcrypt**, logout endpoint, forgot/reset password via email (OTP).
 - **Role-based access** — `admin`, `partner`, `user` (enforced per page on the client and via JWT middleware on the API).
 - **Movies** — admins add/update/delete movies; everyone can browse & search.
 - **Theatres** — partners register theatres; admins approve (activate) them.
 - **Shows** — partners schedule shows (movie + theatre + date/time/price/seats).
 - **Booking & payments** — interactive seat selection, payment via **Stripe Checkout Sessions** (hosted payment page), booking confirmed on return with an idempotent `confirmBooking` step.
-- **Double-booking guard** — seat availability is re-checked before every write, and confirming the same Stripe session twice returns the existing booking instead of duplicating it.
+- **Double-booking prevention** — seats are claimed with an atomic `findOneAndUpdate` inside a **MongoDB multi-document transaction**; of two concurrent requests for the same seat exactly one succeeds (the other gets HTTP 409). A unique index on `transactionId` guarantees one booking per Stripe session.
+- **Consistent error handling** — a global Express error middleware maps thrown `ApiError`s to proper status codes (400/401/404/409/500) with the app-wide `{success, message}` body; the frontend surfaces errors through one global alert channel.
+- **API docs** — Swagger UI at `/bms/api-docs` generated from JSDoc annotations on the routes.
 - **Ticket email** — booking confirmation with ticket details sent via Nodemailer (best-effort: a missing Gmail config never fails the booking).
 - **Security** — `helmet` with a content-security-policy, `express-rate-limit` (100 requests / 15 min per IP on `/bms`), `express-mongo-sanitize`, CORS.
 
@@ -22,7 +24,7 @@ A full-stack movie ticket–booking application (a BookMyShow clone) built with 
 
 | Layer | Technologies |
 |---|---|
-| **Frontend** | React 18, Vite 5, Redux Toolkit, React Router 6, Ant Design 5, Axios, Luxon |
+| **Frontend** | React 18, Vite 5, Redux Toolkit (user/movies/theatres/loader slices), React Router 6, Ant Design 5, Axios, Luxon, reusable `useApi` hook |
 | **Backend** | Node.js, Express 4, Mongoose 8 |
 | **Database** | MongoDB |
 | **Auth/Security** | JWT, bcrypt, helmet, express-rate-limit, express-mongo-sanitize, CORS |
@@ -55,7 +57,12 @@ BookMyShow-Clone/
 
 ### Prerequisites
 - Node.js 18+
-- MongoDB (local, or Docker: `docker run -d -p 27017:27017 --name bms-mongo mongo:7`)
+- MongoDB running as a **replica set** (required for the transactional booking flow). With Docker:
+  ```bash
+  docker run -d -p 27017:27017 --name bms-mongo mongo:7 --replSet rs0
+  docker exec bms-mongo mongosh --eval "rs.initiate()"   # one-time init
+  ```
+  An existing standalone `bms-mongo` container must be recreated with `--replSet` (or a local `mongod` restarted with `--replSet rs0` + `rs.initiate()`).
 - A Stripe **test** account (for the secret key)
 
 ### 1. Backend
@@ -88,7 +95,7 @@ Log in as `user@bms.com`, pick a movie → theatre → show → seats, and pay o
 | Variable | Description |
 |---|---|
 | `PORT` | API port — **must be 8083** (the Vite proxy target) |
-| `MONGODB_URL` | MongoDB connection string |
+| `MONGODB_URL` | MongoDB connection string — include `?replicaSet=rs0&directConnection=true` (transactions need a replica set) |
 | `SECRET_KEY` | JWT signing secret |
 | `STRIPE_KEY` | Stripe **secret** (test) key — `sk_test_...` |
 | `GMAIL_USER` | Gmail address for OTP / ticket emails (optional in local dev) |
@@ -96,23 +103,23 @@ Log in as `user@bms.com`, pick a movie → theatre → show → seats, and pay o
 
 ## 💳 Payment Flow (Stripe Checkout)
 
-1. The client calls `POST /bms/bookings/createCheckoutSession` with the show, seats, and user; the server re-validates seat availability and creates a Checkout Session (seats and show stored in the session `metadata`).
+1. The client calls `POST /bms/bookings/createCheckoutSession` with the show, seats, and user; the server pre-checks seat availability and creates a Checkout Session (seats and show stored in the session `metadata`).
 2. The user pays on Stripe's hosted page and is redirected to `/payment-success?session_id=...`.
-3. The client calls `POST /bms/bookings/confirmBooking`; the server verifies `payment_status === "paid"`, re-checks the seats, marks them booked, and creates the booking. Confirming the same session again (e.g. a page refresh) returns the existing booking.
-
-Legacy endpoints (`makePayment`, `makePaymentAndBookShow`) that used tokenized-card payments via `react-stripe-checkout` are kept for reference but the app uses the hosted Checkout flow.
+3. The client calls `POST /bms/bookings/confirmBooking`; the server verifies `payment_status === "paid"`, then **atomically claims the seats and creates the booking inside a MongoDB transaction** (seat conflict → 409, payment stays refundable). Confirming the same session again (e.g. a page refresh) returns the existing booking, and a ticket email is sent best-effort.
 
 ## 🔌 API (base path `/bms`)
 
 | Resource | Endpoints |
 |---|---|
-| Users | `POST /users/register`, `POST /users/login`, `GET /users/getCurrentUser` 🔒, `POST /users/forgetPassword`, `POST /users/resetPassword` |
+| Users | `POST /users/register`, `POST /users/login`, `POST /users/logout`, `GET /users/getCurrentUser` 🔒, `POST /users/forgetPassword`, `POST /users/resetPassword` |
 | Movies 🔒 | `GET /movies/getAllMovies`, `POST /movies/addMovie`, `PATCH /movies/updateMovie`, `DELETE /movies/deleteMovie/:id`, `GET /movies/movie/:id` |
 | Theatres 🔒 | `POST /theatres/addTheatre`, `PATCH /theatres/updateTheatre`, `GET /theatres/getAllTheatres`, `GET /theatres/getAllTheatresByOwner`, `DELETE /theatres/deleteTheatre/:id` |
 | Shows 🔒 | `POST /shows/addShow`, `PATCH /shows/updateShow`, `DELETE /shows/deleteShow/:id`, `POST /shows/getAllShowsByTheatre`, `POST /shows/getAllTheatersByMovie`, `POST /shows/getShowById` |
-| Bookings 🔒 | `POST /bookings/createCheckoutSession`, `POST /bookings/confirmBooking`, `GET /bookings/getAllBookings`, `POST /bookings/bookShow`, `POST /bookings/makePayment`, `POST /bookings/makePaymentAndBookShow` |
+| Bookings 🔒 | `POST /bookings/createCheckoutSession`, `POST /bookings/confirmBooking`, `GET /bookings/getAllBookings` |
 
-🔒 = requires an `Authorization: Bearer <JWT>` header. All `/bms` routes are rate-limited to 100 requests per IP per 15 minutes.
+🔒 = requires authentication: the `tokenForBMS` httpOnly cookie set by login (the browser sends it automatically), or an `Authorization: Bearer <JWT>` header as a fallback for tools like curl/Swagger. All `/bms` routes are rate-limited to 100 requests per IP per 15 minutes.
+
+Interactive API docs: **`http://localhost:8083/bms/api-docs`** (Swagger UI, generated from the route annotations).
 
 ## 🖥️ Frontend Routes
 

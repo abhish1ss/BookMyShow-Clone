@@ -1,9 +1,9 @@
 import React from "react";
-import { Col, Modal, Row, Form, Input, Button, message } from "antd";
+import { Col, Modal, Row, Form, Input, Button } from "antd";
 import TextArea from "antd/es/input/TextArea";
-import { hideLoading, showLoading } from "../../redux/loaderSlice";
 import { addTheatre, updateTheatre } from "../../api/theatre";
-import { useDispatch, useSelector } from "react-redux";
+import { useSelector } from "react-redux";
+import useApi from "../../hooks/useApi";
 
 const TheatreForm = ({
   isModalOpen,
@@ -13,31 +13,24 @@ const TheatreForm = ({
   formType,
   getData,
 }) => {
-  const dispatch = useDispatch();
   const { user } = useSelector((state) => state.user);
+  const { execute: saveNewTheatre } = useApi(addTheatre, {
+    successMessage: true,
+    onSuccess: () => getData(),
+  });
+  const { execute: saveTheatreUpdate } = useApi(updateTheatre, {
+    successMessage: true,
+    onSuccess: () => getData(),
+  });
+
   const onFinish = async (values) => {
-    try {
-      dispatch(showLoading());
-      let response = null;
-      if (formType === "add") {
-        response = await addTheatre({ ...values, owner: user._id });
-      } else {
-        values.theatreId = selectedTheatre._id;
-        response = await updateTheatre(values);
-      }
-      if (response.success) {
-        message.success(response.message);
-        getData();
-      } else {
-        message.error(response.error);
-      }
-    } catch (error) {
-      message.error(error);
-    } finally {
-      dispatch(hideLoading());
-      setSelectedTheatre(null);
-      setIsModalOpen(false);
+    if (formType === "add") {
+      await saveNewTheatre({ ...values, owner: user._id });
+    } else {
+      await saveTheatreUpdate({ ...values, theatreId: selectedTheatre._id });
     }
+    setSelectedTheatre(null);
+    setIsModalOpen(false);
   };
   const handleCancel = () => {
     setIsModalOpen(false);

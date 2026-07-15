@@ -1,10 +1,9 @@
-import { Col, Modal, Row, Form, Input, Select, Button, message } from "antd";
+import { Col, Modal, Row, Form, Input, Select, Button } from "antd";
 import React from "react";
-import moment from "moment";
 import TextArea from "antd/es/input/TextArea";
-import { useDispatch } from "react-redux";
-import { hideLoading, showLoading } from "../../redux/loaderSlice";
 import { addMovie, updateMovie } from "../../api/movie";
+import useApi from "../../hooks/useApi";
+import { formatDate } from "../../utils/date";
 
 const MovieForm = ({
   isModalOpen,
@@ -14,40 +13,33 @@ const MovieForm = ({
   getData,
   formType,
 }) => {
-  const dispatch = useDispatch();
-
   if (selectedMovie) {
-    selectedMovie.releaseDate = moment(selectedMovie.releaseDate).format(
-      "YYYY-MM-DD"
-    );
+    selectedMovie.releaseDate = formatDate(selectedMovie.releaseDate);
   }
+
+  const onSaved = () => {
+    getData();
+    setIsModalOpen(false);
+  };
+  const { execute: saveNewMovie } = useApi(addMovie, {
+    successMessage: true,
+    onSuccess: onSaved,
+  });
+  const { execute: saveMovieUpdate } = useApi(updateMovie, {
+    successMessage: true,
+    onSuccess: onSaved,
+  });
 
   const handleCancel = () => {
     setIsModalOpen(false);
     setSelectedMovie(null);
   };
 
-  const onFinish = async (values) => {
-    try {
-      dispatch(showLoading());
-      let response = null;
-      if (formType === "edit") {
-        response = await updateMovie({
-          ...values,
-          movieId: selectedMovie._id,
-        });
-      } else {
-        response = await addMovie(values);
-      }
-      if (response.success) {
-        message.success(response.message);
-        getData();
-        setIsModalOpen(false);
-      }
-    } catch (error) {
-      message.error(error);
-    } finally {
-      dispatch(hideLoading());
+  const onFinish = (values) => {
+    if (formType === "edit") {
+      saveMovieUpdate({ ...values, movieId: selectedMovie._id });
+    } else {
+      saveNewMovie(values);
     }
   };
   return (

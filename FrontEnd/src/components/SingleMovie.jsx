@@ -1,64 +1,39 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { getMovieById } from "../api/movie";
-import { hideLoading, showLoading } from "../redux/loaderSlice";
-import { useDispatch } from "react-redux";
-import { message, Input, Divider, Row, Col } from "antd";
+import { Input, Divider, Row, Col } from "antd";
 import { CalendarOutlined } from "@ant-design/icons";
-import moment from "moment";
 import { getAllTheatresByMovie } from "../api/show";
+import useApi from "../hooks/useApi";
+import {
+  today,
+  formatShowDate,
+  formatTime,
+  compareTimes,
+} from "../utils/date";
 
 const SingleMovie = () => {
   const params = useParams();
-  const dispatch = useDispatch();
   const navigate = useNavigate();
 
-  const [movie, setMovie] = useState();
-  const [theatres, setTheatres] = useState([]);
-  const [date, setDate] = useState(moment().format("YYYY-MM-DD"));
-
-  const getData = async () => {
-    try {
-      dispatch(showLoading());
-      const response = await getMovieById(params.id);
-      if (response.success) {
-        setMovie(response.data);
-      } else {
-        message.error(response.message);
-      }
-      dispatch(hideLoading());
-    } catch (err) {
-      message.error(err.message);
-      dispatch(hideLoading());
-    }
-  };
-
-  const getAllTheatres = async () => {
-    try {
-      dispatch(showLoading());
-      const response = await getAllTheatresByMovie({ movie: params.id, date });
-      if (response.success) {
-        setTheatres(response.data);
-      } else {
-        message.error(response.message);
-      }
-      dispatch(hideLoading());
-    } catch (err) {
-      dispatch(hideLoading());
-      message.err(err.message);
-    }
-  };
+  const [date, setDate] = useState(today());
+  const { data: movie, execute: fetchMovie } = useApi(getMovieById);
+  const { data: theatres, execute: fetchTheatres } = useApi(
+    getAllTheatresByMovie,
+    { initialData: [] }
+  );
 
   const handleDate = (e) => {
-    setDate(moment(e.target.value).format("YYYY-MM-DD"));
+    setDate(e.target.value);
     navigate(`/movie/${params.id}?date=${e.target.value}`);
   };
+
   useEffect(() => {
-    getData();
+    fetchMovie(params.id);
   }, []);
 
   useEffect(() => {
-    getAllTheatres();
+    fetchTheatres({ movie: params.id, date });
   }, [date]);
   return (
     <div className="inner-container" style={{ paddingTop: "20px" }}>
@@ -77,7 +52,7 @@ const SingleMovie = () => {
             </p>
             <p className="movie-data">
               Release Date:
-              <span>{moment(movie.releaseDate).format("MMM Do YYYY")}</span>
+              <span>{formatShowDate(movie.releaseDate)}</span>
             </p>
             <p className="movie-data">
               Duration: <span>{movie.duration} Minutes</span>
@@ -88,7 +63,7 @@ const SingleMovie = () => {
               <Input
                 onChange={handleDate}
                 type="date"
-                min={moment().format("YYYY-MM-DD")}
+                min={today()}
                 className="max-width-300 mt-8px-mob"
                 value={date}
                 placeholder="default size"
@@ -119,10 +94,7 @@ const SingleMovie = () => {
                   <Col xs={{ span: 24 }} lg={{ span: 16 }}>
                     <ul className="show-ul">
                       {theatre.shows
-                        .sort(
-                          (a, b) =>
-                            moment(a.time, "HH:mm") - moment(b.time, "HH:mm")
-                        )
+                        .sort((a, b) => compareTimes(a.time, b.time))
                         .map((singleShow) => {
                           return (
                             <li
@@ -131,9 +103,7 @@ const SingleMovie = () => {
                                 navigate(`/book-show/${singleShow._id}`)
                               }
                             >
-                              {moment(singleShow.time, "HH:mm").format(
-                                "hh:mm A"
-                              )}
+                              {formatTime(singleShow.time)}
                             </li>
                           );
                         })}

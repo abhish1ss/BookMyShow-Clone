@@ -17,6 +17,9 @@ const bookingSchema = new mongoose.Schema(
     transactionId: {
       type: String,
       required: true,
+      // hardens confirmBooking's idempotency: a Stripe session can never
+      // produce two bookings even under concurrent confirmation requests
+      unique: true,
     },
   },
   { timestamps: true }

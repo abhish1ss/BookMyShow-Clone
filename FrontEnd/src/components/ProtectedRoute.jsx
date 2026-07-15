@@ -2,9 +2,9 @@ import React, { useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { Link, useNavigate } from "react-router-dom";
 import { hideLoading, showLoading } from "../redux/loaderSlice";
-import { GetCurrentUser } from "../api/user";
+import { GetCurrentUser, LogoutUser } from "../api/user";
 import { setUser } from "../redux/userSlice";
-import { Layout, Menu, message } from "antd";
+import { Layout, Menu } from "antd";
 import { Header } from "antd/es/layout/layout";
 import {
   HomeOutlined,
@@ -60,8 +60,9 @@ const ProtectedRoute = ({ children }) => {
           label: (
             <Link
               to="/login"
-              onClick={() => {
-                localStorage.removeItem("tokenForBMS");
+              onClick={async () => {
+                await LogoutUser();
+                dispatch(setUser(null));
               }}
             >
               Log out
@@ -76,21 +77,22 @@ const ProtectedRoute = ({ children }) => {
   const getValidUser = async () => {
     try {
       dispatch(showLoading());
+      // the session lives in an httpOnly cookie, so the only way to know if
+      // the user is logged in is to ask the backend
       const response = await GetCurrentUser();
-      dispatch(setUser(response?.data));
-    } catch (error) {
-      message.error(error);
+      if (response?.success) {
+        dispatch(setUser(response.data));
+      } else {
+        dispatch(setUser(null));
+        navigate("/login");
+      }
     } finally {
       dispatch(hideLoading());
     }
   };
 
   useEffect(() => {
-    if (localStorage.getItem("tokenForBMS")) {
-      getValidUser();
-    } else {
-      navigate("/login");
-    }
+    getValidUser();
   }, []);
   return (
     user && (
